@@ -2,29 +2,21 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import { FixedSizeList as List } from 'react-window';
-/**
- * TODO: this will come in another PR.
- */
-// eslint-disable-next-line no-restricted-imports
-import { ReactSelect } from '@strapi/helper-plugin';
 import {
   Status,
   Box,
   Link,
   Icon,
-  FieldLabel,
-  FieldError,
-  FieldHint,
-  Field,
+  Flex,
   TextButton,
   Typography,
   Tooltip,
   VisuallyHidden,
+  Combobox,
 } from '@strapi/design-system';
 
 import { Cross, Refresh } from '@strapi/icons';
 
-import { Relation } from './components/Relation';
 import { RelationItem } from './components/RelationItem';
 import { RelationList } from './components/RelationList';
 import { Option } from './components/Option';
@@ -88,7 +80,8 @@ const RelationInput = ({
   searchResults,
   size,
 }) => {
-  const [value, setValue] = useState(null);
+  const [value, setValue] = useState('');
+  const [filterValue, setFilterValue] = useState('');
   const [overflow, setOverflow] = useState('');
 
   const listRef = useRef();
@@ -158,71 +151,10 @@ const RelationInput = ({
     };
   }, [paginatedRelations, relations, numberOfRelationsToDisplay, totalNumberOfRelations]);
 
-  /**
-   * --- ReactSelect Workaround START ---
-   */
-  /**
-   * This code is being isolated because it's a hack to fix a placement bug in
-   * `react-select` where when the options prop is updated the position of the
-   * menu is not recalculated.
-   */
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const timeoutRef = useRef();
-  const previousOptions = useRef([]);
-
-  useEffect(() => {
-    /**
-     * We only really want this effect to fire once when the options
-     * change from an empty array to an array with values.
-     * Otherwise, it'll fire when the infinite scrolling happens causing
-     * the menu to jump to the top all the time when loading more.
-     */
-    if (options.length > 0 && previousOptions.current.length === 0) {
-      setIsMenuOpen((isCurrentlyOpened) => {
-        /**
-         * If we're currently open and the options changed
-         * we want to close and open to ensure the menu's
-         * position is correctly calculated
-         */
-        if (isCurrentlyOpened) {
-          timeoutRef.current = setTimeout(() => {
-            setIsMenuOpen(true);
-          }, 10);
-
-          return false;
-        }
-
-        return false;
-      });
+  const handleMenuOpen = (isOpen) => {
+    if (isOpen) {
+      onSearch();
     }
-
-    return () => {
-      previousOptions.current = options || [];
-    };
-  }, [options]);
-
-  useEffect(() => {
-    return () => {
-      /**
-       * If the component unmounts and a timer is set we should clear that timer
-       */
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleMenuClose = () => {
-    setIsMenuOpen(false);
-  };
-  /**
-   * --- ReactSelect Workaround END ---
-   */
-
-  const handleMenuOpen = () => {
-    setIsMenuOpen(true);
-    onSearch();
   };
 
   /**
@@ -250,10 +182,9 @@ const RelationInput = ({
   };
 
   useEffect(() => {
-    if (
-      updatedRelationsWith.current === 'onChange' &&
-      relations.length !== previewRelationsLength
-    ) {
+    if (updatedRelationsWith.current === 'onChange') {
+      setValue('');
+      setFilterValue('');
       listRef.current.scrollToItem(relations.length, 'end');
     } else if (
       updatedRelationsWith.current === 'loadMore' &&
@@ -268,104 +199,88 @@ const RelationInput = ({
   const ariaDescriptionId = `${name}-item-instructions`;
 
   return (
-    <Field error={error} name={name} hint={description} id={id} required={required}>
-      <Relation
-        totalNumberOfRelations={totalNumberOfRelations}
-        size={size}
-        search={
-          <>
-            <FieldLabel action={labelAction}>{label}</FieldLabel>
-            <ReactSelect
-              // position fixed doesn't update position on scroll
-              // react select doesn't update menu position on options change
-              menuPosition="absolute"
-              menuPlacement="auto"
-              components={{ Option }}
-              options={options}
-              isDisabled={disabled}
-              isLoading={searchResults.isLoading}
-              error={error}
-              inputId={id}
-              isSearchable
-              isClear
-              loadingMessage={() => loadingMessage}
-              onChange={(relation) => {
-                setValue(null);
-                onRelationConnect(relation);
-                updatedRelationsWith.current = 'onChange';
-              }}
-              onInputChange={(value) => {
-                setValue(value);
-                onSearch(value);
-              }}
-              onMenuClose={handleMenuClose}
-              onMenuOpen={handleMenuOpen}
-              menuIsOpen={isMenuOpen}
-              noOptionsMessage={() => noRelationsMessage}
-              onMenuScrollToBottom={() => {
-                if (searchResults.hasNextPage) {
-                  onSearchNextPage();
-                }
-              }}
-              placeholder={placeholder}
-              name={name}
-              value={value}
-            />
-          </>
-        }
-        loadMore={
-          shouldDisplayLoadMoreButton && (
-            <TextButton
-              disabled={paginatedRelations.isLoading || paginatedRelations.isFetchingNextPage}
-              onClick={handleLoadMore}
-              loading={paginatedRelations.isLoading || paginatedRelations.isFetchingNextPage}
-              startIcon={<Refresh />}
-            >
-              {labelLoadMore}
-            </TextButton>
-          )
-        }
-      >
-        {relations.length > 0 && (
-          <RelationList overflow={overflow}>
-            <VisuallyHidden id={ariaDescriptionId}>{listAriaDescription}</VisuallyHidden>
-            <VisuallyHidden aria-live="assertive">{liveText}</VisuallyHidden>
-            <List
-              height={dynamicListHeight}
-              ref={listRef}
-              outerRef={outerListRef}
-              itemCount={totalNumberOfRelations}
-              itemSize={RELATION_ITEM_HEIGHT + RELATION_GUTTER}
-              itemData={{
-                name,
-                ariaDescribedBy: ariaDescriptionId,
-                canDrag: canReorder,
-                disabled,
-                handleCancel: onCancel,
-                handleDropItem: onDropItem,
-                handleGrabItem: onGrabItem,
-                iconButtonAriaLabel,
-                labelDisconnectRelation,
-                onRelationDisconnect,
-                publicationStateTranslations,
-                relations,
-                updatePositionOfRelation: handleUpdatePositionOfRelation,
-              }}
-              itemKey={(index) => `${relations[index].mainField}_${relations[index].id}`}
-              innerElementType="ol"
-            >
-              {ListItem}
-            </List>
-          </RelationList>
+    <Flex gap={3} justifyContent="space-between" alignItems="end" wrap="wrap">
+      <Flex direction="column" alignItems="stretch" basis={size <= 6 ? '100%' : '70%'} gap={2}>
+        <Combobox
+          error={error}
+          name={name}
+          hint={description}
+          id={id}
+          required={required}
+          label={label}
+          labelAction={labelAction}
+          disabled={disabled}
+          placeholder={placeholder}
+          hasMoreItems={searchResults.hasNextPage}
+          loading={searchResults.isLoading}
+          onOpenChange={handleMenuOpen}
+          noOptionsMessage={() => noRelationsMessage}
+          loadingMessage={loadingMessage}
+          onLoadMore={() => {
+            onSearchNextPage();
+          }}
+          textValue={value}
+          filterValue={filterValue}
+          onChange={(relationId) => {
+            onRelationConnect(options.find((opt) => opt.id === relationId));
+            updatedRelationsWith.current = 'onChange';
+          }}
+          onTextValueChange={(text) => {
+            setValue(text);
+          }}
+          onInputChange={(event) => {
+            setFilterValue(event.currentTarget.value);
+            onSearch(event.currentTarget.value);
+          }}
+        >
+          {options.map((opt) => {
+            return <Option key={opt.id} {...opt} />;
+          })}
+        </Combobox>
+        {shouldDisplayLoadMoreButton && (
+          <TextButton
+            disabled={paginatedRelations.isLoading || paginatedRelations.isFetchingNextPage}
+            onClick={handleLoadMore}
+            loading={paginatedRelations.isLoading || paginatedRelations.isFetchingNextPage}
+            startIcon={<Refresh />}
+          >
+            {labelLoadMore}
+          </TextButton>
         )}
-        {(description || error) && (
-          <Box paddingTop={2}>
-            <FieldHint />
-            <FieldError />
-          </Box>
-        )}
-      </Relation>
-    </Field>
+      </Flex>
+      {relations.length > 0 && (
+        <RelationList overflow={overflow}>
+          <VisuallyHidden id={ariaDescriptionId}>{listAriaDescription}</VisuallyHidden>
+          <VisuallyHidden aria-live="assertive">{liveText}</VisuallyHidden>
+          <List
+            height={dynamicListHeight}
+            ref={listRef}
+            outerRef={outerListRef}
+            itemCount={totalNumberOfRelations}
+            itemSize={RELATION_ITEM_HEIGHT + RELATION_GUTTER}
+            itemData={{
+              name,
+              ariaDescribedBy: ariaDescriptionId,
+              canDrag: canReorder,
+              disabled,
+              handleCancel: onCancel,
+              handleDropItem: onDropItem,
+              handleGrabItem: onGrabItem,
+              iconButtonAriaLabel,
+              labelDisconnectRelation,
+              onRelationDisconnect,
+              publicationStateTranslations,
+              relations,
+              updatePositionOfRelation: handleUpdatePositionOfRelation,
+            }}
+            itemKey={(index) => `${relations[index].mainField}_${relations[index].id}`}
+            innerElementType="ol"
+          >
+            {ListItem}
+          </List>
+        </RelationList>
+      )}
+    </Flex>
   );
 };
 
