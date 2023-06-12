@@ -14,7 +14,7 @@ export const fetchData = async (toggleNotification, notifyStatus) => {
       message: { id: 'notification.error' },
     });
 
-    throw new Error('error');
+    throw new Error(err);
   }
 };
 
