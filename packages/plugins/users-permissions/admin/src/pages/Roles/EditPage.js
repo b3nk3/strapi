@@ -10,6 +10,7 @@ import {
   Form,
   useNotification,
   Link,
+  translatedErrors,
 } from '@strapi/helper-plugin';
 import {
   ContentLayout,
@@ -25,11 +26,16 @@ import {
   Grid,
 } from '@strapi/design-system';
 import { ArrowLeft, Check } from '@strapi/icons';
-import UsersPermissions from '../../../components/UsersPermissions';
-import getTrad from '../../../utils/getTrad';
-import pluginId from '../../../pluginId';
-import { usePlugins, useFetchRole } from '../../../hooks';
-import schema from './utils/schema';
+import * as yup from 'yup';
+import UsersPermissions from '../../components/UsersPermissions';
+import getTrad from '../../utils/getTrad';
+import pluginId from '../../pluginId';
+import { usePlugins, useFetchRole } from '../../hooks';
+
+const schema = yup.object().shape({
+  name: yup.string().required(translatedErrors.required),
+  description: yup.string().required(translatedErrors.required),
+});
 
 const EditPage = () => {
   const { formatMessage } = useIntl();

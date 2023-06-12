@@ -9,7 +9,6 @@ import { ThemeProvider, lightTheme } from '@strapi/design-system';
 import { MemoryRouter, Route } from 'react-router-dom';
 
 import RoleListPage from '../index';
-import server from './server';
 
 jest.mock('@strapi/design-system', () => ({
   ...jest.requireActual('@strapi/design-system'),
@@ -64,16 +63,10 @@ const render = () => ({
   user: userEvent.setup(),
 });
 
-describe('Plugin | Users and Permissions | RoleListPage', () => {
-  beforeAll(() => server.listen());
-
+describe('Roles – ListPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
-
-  afterEach(() => server.resetHandlers());
-
-  afterAll(() => server.close());
 
   it('renders as expected with headers, actions and a table', async () => {
     const { getByRole, queryByText, getByText } = render();
